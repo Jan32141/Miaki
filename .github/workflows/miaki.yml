@@ -12,47 +12,54 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Crucial: GitHub's runner, not yours
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Install System Dependencies
       run: |
         sudo apt update
-        sudo apt install -y make git wget cmake python-is-python3 bzip2
+        sudo apt install -y make git wget cmake python-is-python3 bzip2 \
+                           autoconf texinfo bison flex libtool-bin
 
-    - name: Setup VitaSDK
-      uses: vitasdk/setup-vitasdk@v1
-      with:
-        # This action handles the download and PATH for you
-        vitasdk-version: latest
+    - name: Install VitaSDK (via VDPM)
+      run: |
+        git clone https://github.com/vitasdk/vdpm
+        cd vdpm
+        ./bootstrap-vitasdk.sh
+        ./install-all.sh
+      env:
+        VITASDK: /usr/local/vitasdk
+
+    - name: Setup Environment Variables
+      run: |
+        echo "VITASDK=/usr/local/vitasdk" >> $GITHUB_ENV
+        echo "PATH=/usr/local/vitasdk/bin:$PATH" >> $GITHUB_ENV
 
     - name: Build Miaki
       run: |
         make
+      # Ensure make uses the variables we just set
       env:
-        # The setup action sets VITASDK, but we ensure it's here
-        VITASDK: ${{ env.VITASDK }}
+        VITASDK: /usr/local/vitasdk
 
     - name: Upload VPK as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Miaki
+        name: Miaki-VPK
         path: app/MIAKI.vpk
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     
     - name: Create Draft Release
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
       uses: softprops/action-gh-release@v2
       with:
         draft: true 
         tag_name: v${{ github.run_number }} 
         name: Miaki Draft Release v${{ github.run_number }}
-        body: |
-          Built from commit: ${{ github.sha }}
-        files: |
-          app/MIAKI.vpk
+        body: "Built from commit: ${{ github.sha }}"
+        files: app/MIAKI.vpk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
