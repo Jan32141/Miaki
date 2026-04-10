@@ -126,7 +126,6 @@ endif
 - load	ur0:tai/henkaku.skprx
 
 # Miaki
-
 - load	ur0:tai/kmspico.skprx
 - load  ur0:tai/sceshell.skprx
 - load  ur0:tai/qafull.skprx
